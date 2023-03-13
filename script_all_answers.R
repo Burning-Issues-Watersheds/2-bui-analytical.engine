@@ -5,7 +5,7 @@ librarian::shelf(plyr, tidytext, tidyverse,
                  pluralize, quanteda, qgraph, cowplot, readr,
                  ggwordcloud)
 
-t_df <- as_tibble(read_csv("assets/data/wildfires_survey_all_answers.csv",show_col_types = FALSE))
+t_df <- as_tibble(read_csv("../1-bui-knowledge.base/assets/data/wildfires_survey_all_answers.csv",show_col_types = FALSE))
 t_df_wa <- filter(t_df,question!="research-a")
 t_df_wa$question <- factor(t_df_wa$question, levels = c("pressing-q","roadblocks","pathways"))
 
