@@ -14,6 +14,9 @@ git_sitrep() # git situation report
 #Read more about what this GitHub remote configurations means at:
 'https://happygitwithr.com/common-remote-setups.html'
 
+usethis::git_remotes()
+usethis::use_github(organisation = "Burning-Issues-Watersheds")
+
 usethis::create_github_token()
 gitcreds::gitcreds_set() 
 usethis::git_sitrep()
