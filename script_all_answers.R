@@ -35,7 +35,7 @@ p <- ggplot(filter(aq_wofire,n>2),
                 size = n, 
                 color = question)) +
   geom_text_wordcloud(area_corr_power = 1) +
-  scale_color_manual(values = c("darkorchid4","darkorange3","chartreuse4"))+
+  scale_color_manual(values = c("darkorchid4","darkorange3","green4"))+
   scale_radius(range = c(0, 20),
                limits = c(0, NA)) +
   facet_wrap(~question, ncol = 3) 
