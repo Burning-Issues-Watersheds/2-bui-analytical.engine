@@ -76,19 +76,7 @@ trigram_graph <- pq_trigrams %>%
   graph_from_data_frame()
 trigram_graph
 
-set.seed(2017)
 
-# a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
-# 
-# ggraph(bigram_graph, layout = "fr") +
-#   geom_edge_link(show.legend = FALSE,
-#                  arrow = a, end_cap = circle(.07, 'inches')) +
-#   geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
-#                  arrow = a, end_cap = circle(.035, 'inches')) +
-#   geom_node_point(color = "blue", size = 3) +
-#   geom_node_text(aes(label = name), vjust = 1, hjust = 1)+
-#   theme_void()
-# V(bigram_graph)$size <- V(bigram_graph)$t_freq*10
 l <- layout_with_fr(trigram_graph)
 e <- get.edgelist(trigram_graph,names=FALSE)
 m <- qgraph.layout.fruchtermanreingold(e,vcount=vcount(trigram_graph))
