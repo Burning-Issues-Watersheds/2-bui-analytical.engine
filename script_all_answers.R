@@ -67,7 +67,7 @@ pq_trigrams %>%
   filter(rank < 20) %>% 
   unite(trigram, word1, word2, word3, sep = " ") %>% 
   ggplot(aes(t_freq, fct_reorder(trigram, t_freq), fill = t_freq)) +
-  scale_fill_gradient(low= "plum", high= "darkorchid4")+
+  scale_fill_gradient(low= "violet", high= "darkorchid4")+
   geom_col(show.legend = FALSE) +
   labs(x = "Frequency", y = NULL)
 
