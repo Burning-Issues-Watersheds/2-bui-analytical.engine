@@ -35,13 +35,14 @@ p <- ggplot(filter(aq_wofire,n>2),
                 size = n, 
                 color = question)) +
   geom_text_wordcloud(area_corr_power = 1) +
+  scale_color_manual(values = c("darkorchid4","darkorange3","chartreuse4"))+
   scale_radius(range = c(0, 20),
                limits = c(0, NA)) +
   facet_wrap(~question, ncol = 3) 
 p
 
 
-# Bi-grams
+# Tri-grams
 
 # Pressing Questions
 t_pq <- filter(t_df_wa,question=="pressing-q")
@@ -66,6 +67,7 @@ pq_trigrams %>%
   filter(rank < 20) %>% 
   unite(trigram, word1, word2, word3, sep = " ") %>% 
   ggplot(aes(t_freq, fct_reorder(trigram, t_freq), fill = t_freq)) +
+  scale_fill_gradient(low= "plum", high= "darkorchid4")+
   geom_col(show.legend = FALSE) +
   labs(x = "Frequency", y = NULL)
 
