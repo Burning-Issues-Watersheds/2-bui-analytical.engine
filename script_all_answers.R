@@ -15,6 +15,28 @@ ans_dat <- t_df_wa %>%
   mutate(answers=gsub(paste0('\\b',tm::stopwords("english"), '\\b', 
                               collapse = '|'), '', answers)) 
 
+###############################################################################
+# Tokenization
+###############################################################################
+
+tkn_tgt <- "answers" #(token target)
+
+aq_tokens <- ans_dat %>% 
+  ungroup() %>% 
+  unnest_tokens(output = word, input = tkn_tgt, drop = FALSE)%>%
+  # anti_join(stop_words, by = "word")%>%
+  # filter(str_detect(word,"[:alpha:]"))%>%
+  # filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
+  # removeNumbers(tkn_tgt) %>% 
+  rowwise() %>% mutate(word = if_else(word!="data",singularize(word),"data")) %>%
+  distinct() %>% 
+  group_by(question) %>% 
+  count(word, sort = FALSE) %>% 
+  mutate(length = nchar(word)) 
+
+head(aq_tokens)
+summary(aq_tokens)
+
 # Tokenization
 ans_tokens <- ans_dat %>% 
   ungroup() %>% 
@@ -22,6 +44,7 @@ ans_tokens <- ans_dat %>%
   filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
   rowwise() %>% mutate(word = if_else(word!="data",singularize(word),"data")) %>%
   distinct() %>% 
+  group_by(question) %>% 
   count(word, sort = TRUE) %>% 
   mutate(length = nchar(word)) 
 
@@ -34,7 +57,7 @@ ans_wofire <- filter(ans_wofire,word!="wildfire")
 ans_wofire <- filter(ans_wofire,word!="al")
 ans_wofire <- filter(ans_wofire,word!="et")
 
-p <- ggplot(filter(ans_wofire,n>2), 
+p <- ggplot(filter(ans_wofire,n>3), 
             aes(label = word, 
                 size = n, 
                 color = question)) +
@@ -46,21 +69,6 @@ p <- ggplot(filter(ans_wofire,n>2),
 p
 
 
-
-
-aq_tokens <- t_df_wa %>% 
-  ungroup() %>% 
-  unnest_tokens(output = word, input = answers, drop = FALSE)%>%
-  anti_join(stop_words, by = "word")%>%
-  filter(str_detect(word,"[:alpha:]"))%>%
-  rowwise() %>% mutate(word = if_else(word!="data",singularize(word),"data")) %>%
-  distinct() %>% 
-  group_by(question) %>% 
-  count(word, sort = FALSE) %>% 
-  mutate(length = nchar(word)) 
-
-head(aq_tokens)
-summary(aq_tokens)
 
 # Using ggwordclouds:
 # https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html
@@ -80,6 +88,56 @@ p <- ggplot(filter(aq_wofire,n>2),
                limits = c(0, NA)) +
   facet_wrap(~question, ncol = 3) 
 p
+
+# Titles
+
+pub_cmp <- "answers"
+
+ans_tokens <- pub_dat %>% 
+  ungroup() %>% 
+  unnest_tokens(output = word, input = pub_cmp, drop = FALSE)%>%
+  filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
+  rowwise() %>% mutate(word = if_else(word!="data",singularize(word),"data")) %>%
+  distinct() %>% 
+  group_by(year) %>% 
+  count(word, sort = TRUE) %>% 
+  mutate(length = nchar(word)) 
+
+# Word clouds
+p1 <- ggplot(pub_tokens, 
+             aes(x = year,
+                 y = n,
+                 label = word, 
+                 size = n, 
+                 color = as.factor(year))) +
+  geom_text_wordcloud(area_corr_power = 1) +
+  # scale_y_log10()+
+  scale_radius(range = c(0, 20),
+               limits = c(0, NA))+
+  theme_minimal()
+p1
+
+# n-grams
+
+gram_l = 2
+n_gram <- paste(gram_l,"gram",sep='-')
+
+a <- seq(1:gram_l)
+b <- rep("word",times=gram_l)
+columns <- paste(b,a,sep = '')
+
+ans_ngrams <- t_df_wa %>%
+  ungroup() %>%
+  filter(str_detect(pub_cmp,"[:alpha:]")) %>%
+  unnest_tokens(n_gram, pub_cmp, token = "ngrams", n = gram_l) %>%
+  filter(!str_detect(n_gram, "[:punct:]|[:digit:]")) %>% 
+  filter(!n_gram %in% c(stop_words$word)) %>%
+  separate(n_gram, columns, sep = " ", remove = FALSE) %>%
+  count(across(all_of(columns), ~.x), sort = TRUE) %>%
+  mutate(rank = row_number(),
+         total = sum(n),
+         t_freq = n/total)
+head(pub_ngrams)
 
 
 # Tri-grams
