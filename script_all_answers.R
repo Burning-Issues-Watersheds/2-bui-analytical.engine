@@ -3,11 +3,50 @@ librarian::shelf(plyr, tidytext, tidyverse,
                  widyr,igraph, ggraph,
                  wordcloud, reshape2, graphlayouts,
                  pluralize, quanteda, qgraph, cowplot, readr,
-                 ggwordcloud)
+                 ggwordcloud,tm)
 
 t_df <- as_tibble(read_csv("../1-bui-knowledge.base/assets/data/wildfires_survey_all_answers.csv",show_col_types = FALSE))
 t_df_wa <- filter(t_df,question!="research-a")
 t_df_wa$question <- factor(t_df_wa$question, levels = c("pressing-q","roadblocks","pathways"))
+
+# Cleaning the data set
+ans_dat <- t_df_wa %>%
+  mutate(answers=removeNumbers(answers))%>%
+  mutate(answers=gsub(paste0('\\b',tm::stopwords("english"), '\\b', 
+                              collapse = '|'), '', answers)) 
+
+# Tokenization
+ans_tokens <- ans_dat %>% 
+  ungroup() %>% 
+  unnest_tokens(output = word, input = answers, drop = FALSE)%>%
+  filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
+  rowwise() %>% mutate(word = if_else(word!="data",singularize(word),"data")) %>%
+  distinct() %>% 
+  count(word, sort = TRUE) %>% 
+  mutate(length = nchar(word)) 
+
+
+# Using ggwordclouds:
+# https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html
+
+ans_wofire <- filter(ans_tokens,word!="fire")
+ans_wofire <- filter(ans_wofire,word!="wildfire")
+ans_wofire <- filter(ans_wofire,word!="al")
+ans_wofire <- filter(ans_wofire,word!="et")
+
+p <- ggplot(filter(ans_wofire,n>2), 
+            aes(label = word, 
+                size = n, 
+                color = question)) +
+  geom_text_wordcloud(area_corr_power = 1) +
+  scale_color_manual(values = c("darkorchid4","darkorange3","green4"))+
+  scale_radius(range = c(0, 20),
+               limits = c(0, NA)) +
+  facet_wrap(~question, ncol = 3) 
+p
+
+
+
 
 aq_tokens <- t_df_wa %>% 
   ungroup() %>% 
@@ -29,6 +68,7 @@ summary(aq_tokens)
 aq_wofire <- filter(aq_tokens,word!="fire")
 aq_wofire <- filter(aq_wofire,word!="wildfire")
 aq_wofire <- filter(aq_wofire,word!="al")
+aq_wofire <- filter(aq_wofire,word!="et")
 
 p <- ggplot(filter(aq_wofire,n>2), 
             aes(label = word, 
