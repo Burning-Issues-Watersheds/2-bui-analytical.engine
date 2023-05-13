@@ -1,7 +1,9 @@
 ################################################################################
 # Bibliography matching
 
-librarian::shelf(tidyverse)
+librarian::shelf(tidyverse,
+                 stringr,
+                 fuzzyjoin)
 
 # Internal paths
 
@@ -27,10 +29,32 @@ zot_dat1 <- zot_dat %>%
          title = Title,
          abstract = `Abstract Note`)
 
+pattern <- "(?<=\\.)\\s*(?=[^\\(]*$)"
+
 drv_dat1 <- drv_dat %>% 
   select(`question-type`,
          reference) %>% 
   rename(question_type = `question-type`,
          citation = reference) %>% 
-  na.omit()
-  
+  mutate(title = str_extract(citation, pattern))
+
+# Merging the two data frames with Fuzzy Join
+
+library(fuzzyjoin)
+
+# Assuming your first data frame is called 'df1' and the second is called 'df2'
+# and the columns with the matching values are called 'a' and 'b', respectively
+threshold <- 0.75 # Setting a threshold for similarity
+merged_df <- stringdist_left_join(zot_dat1, drv_dat1, by = c("title", "citation"), max_dist = threshold, distance_col = "distance")
+
+threshold <- 0.75 # Setting a threshold for similarity
+merged_df <- stringdist_left_join(zot_dat1, drv_dat1, by = c("title", "citation"), max_dist = threshold, distance_col = "distance")
+
+
+# Filtering based on threshold
+merged_df <- merged_df[merged_df$distance <= threshold, ]
+
+# Removing the 'distance' column
+merged_df$distance <- NULL
+
+
