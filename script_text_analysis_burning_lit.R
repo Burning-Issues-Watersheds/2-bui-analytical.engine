@@ -240,6 +240,10 @@ html_code <- as.character(tags$div(id = "network-container", network))
 # Output the HTML code to embed in your Quarto website
 html_code
 
+# Save the network as an HTML file
+html_file <- "../3-bui-production.hub/abstract_network.html"
+saveWidget(network, file = html_file)
+
 # Save the HTML code to a file
 html_file <- "network.html"
 writeLines(html_code, con = html_file) 
