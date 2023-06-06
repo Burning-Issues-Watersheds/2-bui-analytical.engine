@@ -8,8 +8,10 @@ librarian::shelf(dplyr, tidytext, tidyverse,
                  htmlwidgets, htmltools)
 
 
-# Local Import Path
+# Import and Export paths
 assets_pubs <- "../1-bui-knowledge.base/assets/data/raw" 
+figures <- "../1-bui-knowledge.base/assets/figs" 
+
 t_df <- as_tibble(read_csv(paste(assets_pubs,"survey_answers_zotero_refs.csv",sep='/'),show_col_types = FALSE))
 t_df
 
@@ -182,7 +184,7 @@ edge_df <- data.frame(from = as.character(get.edgelist(ngram_graph)[,1]),
                       to = as.character(get.edgelist(ngram_graph)[,2]))
 
 # Create a visNetwork object
-visNetwork(nodes = node_df, edges = edge_df, 
+network <- visNetwork(nodes = node_df, edges = edge_df, 
            width = "100%", height = "600px") %>%
   
   # Add physics layout and stabilization
@@ -197,7 +199,16 @@ visNetwork(nodes = node_df, edges = edge_df,
   # Add a tooltip
   visInteraction(hover = TRUE) 
 
-# Save the network as an HTML widget
+# Save the network as an HTML 
+visSave(network, paste(figures,"abstract_network.html", sep = '/'), selfcontained = TRUE, background = "white")
+
+
+
+
+
+
+
+
 html_widget <- htmlwidgets::saveWidget(network, "network.html", selfcontained = TRUE)
 
 # Output the file path to embed in your Quarto website
