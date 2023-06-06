@@ -209,10 +209,6 @@ visSave(network, paste(figures,"abstract_network.html", sep = '/'), selfcontaine
 
 
 
-html_widget <- htmlwidgets::saveWidget(network, "network.html", selfcontained = TRUE)
-
-# Output the file path to embed in your Quarto website
-html_widget
 
 
 
