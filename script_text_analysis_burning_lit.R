@@ -1,5 +1,13 @@
+###############################################################################
+# Text Analysis and visualization from reference collection in Zotero
+# Reference provided by survey respondents to the Wildfires & Watersheds survey
+# by Myers-Pigg et al., 20xx
+################################################################################
+
+#Cleaning memory resources
 gc()
 
+#loading required packages
 librarian::shelf(dplyr, tidytext, tidyverse,
                  widyr,igraph, ggraph, plotly,
                  wordcloud, reshape2, graphlayouts,
@@ -19,9 +27,8 @@ t_df
 # on Title, Abstract, Authors, Journal, Year. To keep column names formatting
 # simple, I use lowercase and spaces are added with (_) when needed.
 
-# Since research rabbit pulls information from multiple databases, in some cases
-# is possible that the abstracts for the papers are not retrieved. In such cases,
-# the value returned would be NA (which is read as a character string and not as
+# In some cases is possible that the abstracts for the papers are not retrieved. 
+# In such cases,the value returned would be NA (which is read as a character string and not as
 # the typical NA). It could also happen that the abstracts could be partially
 # retrieved. To filter these cases out, we will add another column to the data
 # frame to count the character length of each abstract, and remove those that are
@@ -43,8 +50,7 @@ t_df_c <- t_df %>%
 
 t_df_c
 
-# In this case we went from 142 publication items, to 96 (i.e. 8 items with no
-# abstract retrieved.)
+# In this case we have abstracts retrieved for all 142 publication items.
 
 # To make sure all words are processed correctly, we need to do some additional 
 # cleaning on the text data. That includes unnesting each publication component 
@@ -58,7 +64,8 @@ t_df_c
 # Choosing analysis level
 
 # You can choose the publication component (pub_comp) you want to focus your 
-# analysis on. In this case, our options are title or abstract
+# analysis on. In this case, our options are title or abstract. We will analyze
+# abstracts
 
 
 # Preparing the data
@@ -83,7 +90,7 @@ pub_dat<- dplyr::select(t_df_c, id, authors, year, journal, all_of(pub_comp)) %>
 # (pub_tokens). There are several packages you could use to tokenize a piece of 
 # text, here we will use the tidytext package for most of our analysis. 
 
-# What the following chunk of code contains two parts:  does is: 1) call the pub_dat dataset, 2) break the 
+# What the following chunk of code does is: 1) call the pub_dat dataset, 2) break the 
 # chunk of (nested) text into tokens (output = word) by using the function unnest_tokens(),
 # 3) eliminating duplicated words with distinct(), 4) grouping the tokens (word) by years,
 # 5) calculating the frequency of a given token in each year -count(), and adding a new
@@ -117,6 +124,7 @@ pub_tokens <- filter(pub_dat) %>%
   )
 #source: https://chat.openai.com/auth/login?next=/chat/f817b62b-ac51-4121-bad6-f6f0fd8c7d90 
 
+# Time Indexed Wordcloud
 
 res_plot = 0.85
 span_y <- res_plot * nrow(pub_tokens)
@@ -172,49 +180,8 @@ ngram_graph <- pub_ngrams %>%
   graph_from_data_frame()
 
 
-library(visNetwork)
-
-# Create a data frame for nodes
-node_df <- data.frame(id = V(ngram_graph)$name, 
-                      size = 15, 
-                      label = V(ngram_graph)$name)
-
-# Create a data frame for edges
-edge_df <- data.frame(from = as.character(get.edgelist(ngram_graph)[,1]), 
-                      to = as.character(get.edgelist(ngram_graph)[,2]))
-
-# Create a visNetwork object
-network <- visNetwork(nodes = node_df, edges = edge_df, 
-           width = "100%", height = "600px") %>%
-  
-  # Add physics layout and stabilization
-  visPhysics(stabilization = TRUE) %>%
-  
-  # Add labels for nodes
-  visNodes(label = "label", title = "title", font = list(size = 20)) %>%
-  
-  # Customize edges
-  visEdges(arrows = "to") %>%
-  
-  # Add a tooltip
-  visInteraction(hover = TRUE) 
-
-# Save the network as an HTML 
-visSave(network, paste(figures,"abstract_network.html", sep = '/'), selfcontained = TRUE, background = "white")
-
-
-
-
-
-
-
-
-
-
-
-  ##############################################################################
-library(visNetwork)
-library(htmltools)
+# Creating the network as an interactive html object to be embedded into the
+# Quarto website
 
 # Create a data frame for nodes
 node_df <- data.frame(id = V(ngram_graph)$name, 
@@ -241,6 +208,10 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   # Add a tooltip
   visInteraction(hover = TRUE)
 
+# Looking at the network object in the viewer tab
+
+network
+
 # Generate the HTML code for the network visualization
 html_code <- as.character(tags$div(id = "network-container", network))
 
@@ -255,32 +226,10 @@ saveWidget(network, file = html_file)
 html_file <- "network.html"
 writeLines(html_code, con = html_file) 
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-
-# Time Oriented Networks
-pub_ngrams <- pub_dat %>%
+################################################################################  
+# Time Oriented Networks - Extremely complex for abstracts
+################################################################################
+pub_time_ngrams <- pub_dat %>%
   ungroup() %>%
   unnest_tokens(n_gram, pub_comp, token = "ngrams", n = gram_l) %>%
   group_by(year) %>%
@@ -288,10 +237,10 @@ pub_ngrams <- pub_dat %>%
   mutate(rank = row_number(),
          total = sum(n),
          t_freq = n/total)
-head(pub_ngrams)
+head(pub_time_ngrams)
 
 # Create the graph using igraph
-ngram_graph <- pub_ngrams %>%
+ngram_time_graph <- pub_time_ngrams %>%
   filter(rank < breath) %>%
   filter(year > time_window) %>%
   # filter(is.na(n_gram)==TRUE) %>% 
@@ -300,16 +249,16 @@ ngram_graph <- pub_ngrams %>%
 library(visNetwork)
 
 # Create a data frame for nodes
-node_df <- data.frame(id = V(ngram_graph)$name, 
+node_tdf <- data.frame(id = V(ngram_time_graph)$name, 
                       size = 10, 
-                      label = V(ngram_graph)$name)
+                      label = V(ngram_time_graph)$name)
 
 # Create a data frame for edges
-edge_df <- data.frame(from = as.character(get.edgelist(ngram_graph)[,1]), 
-                      to = as.character(get.edgelist(ngram_graph)[,2]))
+edge_tdf <- data.frame(from = as.character(get.edgelist(ngram_time_graph)[,1]), 
+                      to = as.character(get.edgelist(ngram_time_graph)[,2]))
 
 # Create a visNetwork object
-visNetwork(nodes = node_df, edges = edge_df, 
+visNetwork(nodes = node_tdf, edges = edge_tdf, 
            width = "100%", height = "600px") %>%
   
   # Add physics layout and stabilization
@@ -331,30 +280,3 @@ visNetwork(nodes = node_df, edges = edge_df,
 
 ################################################################################
 
-# This one works but the number of words is too high
-int_p <- ggplotly(p)
-int_p
-
-
-# Convert the graph to a ggplot object using ggraph
-ggplot_graph <- ggraph(ngram_graph, layout = "fr") +
-  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "sienna3") +
-  geom_node_point(size = 2) +
-  geom_node_text(aes(label = name), nudge_x = 0.1, nudge_y = 0.1, size = 2.5) +
-  ggtitle("Interactive Network Graph using plotly and ggraph") +
-  theme_void() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  guides(size = FALSE)
-ggplot_graph
-
-# Convert the ggplot object to an interactive plot using ggplotly
-plotly_graph <- ggplotly(ggplot_graph, tooltip = c("name", "degree"))
-
-# Add plotly click interactions
-plotly_graph <- plotly_graph %>% 
-  event_register("plotly_click")
-
-# Display the interactive plot
-plotly_graph
-
-# This code generate a plotly version but with no links
