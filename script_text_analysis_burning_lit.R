@@ -102,72 +102,7 @@ pub_dat<- dplyr::select(abs_q_type, question_type, id, authors, year, journal, a
   mutate(!!paste0(pub_comp) := map_chr(map(data, unlist), paste, collapse = " ")) %>% 
   select(-c(pub_comp_words,data))
 
-# Tokenization
 
-# Our first step to analyze the selected publication component, is to break it 
-# into individual words (or tokens) and store the tokens in a new data frame for 
-# (pub_tokens). There are several packages you could use to tokenize a piece of 
-# text, here we will use the tidytext package for most of our analysis. 
-
-# What the following chunk of code does is: 1) call the pub_dat dataset, 2) break the 
-# chunk of (nested) text into tokens (output = word) by using the function unnest_tokens(),
-# 3) eliminating duplicated words with distinct(), 4) grouping the tokens (word) by years,
-# 5) calculating the frequency of a given token in each year -count(), and adding a new
-# column with the numnber of characters -nchar for each token, so we can filter monosyllabes.
-
-pub_tokens <- pub_dat %>%
-  unnest_tokens(output = word, input = pub_comp, drop = FALSE) %>%
-  distinct() %>%
-  group_by(year) %>%
-  count(word, sort = TRUE)%>%
-  rename(word_freq = n) %>% 
-  summarise(tot_freq = sum(word_freq)) %>%
-  left_join(
-    .,
-    pub_dat %>%
-  unnest_tokens(output = word, input = pub_comp, drop = FALSE) %>%
-  distinct() %>%
-  group_by(year, word) %>%
-  count(sort = TRUE) %>%
-  rename(word_freq = n) %>% 
-  rowwise() %>% dplyr::summarise(max_freq = max(word_freq),groups = word,word_freq) %>% 
-  mutate(length = nchar(word)) %>%
-  filter(length > 2) %>%
-  group_by(year) %>%
-  mutate(
-    n_rel = word_freq / sum(word_freq),
-    csm_rel = cumsum(n_rel),
-    pst_rel = (word_freq-1) + csm_rel)%>%
-    ungroup(),
-  by = "year"
-  )
-#source: https://chat.openai.com/auth/login?next=/chat/f817b62b-ac51-4121-bad6-f6f0fd8c7d90 
-
-# Time Indexed Wordcloud
-
-res_plot = 0.85
-span_y <- res_plot * nrow(pub_tokens)
-set.seed(27)
-
-p <- pub_tokens[1:span_y,] %>% 
-  ggplot(aes(x = year, y = pst_rel, color = -year, size = word_freq, label = word)) +
-  geom_text(aes(size = word_freq),check_overlap = TRUE, hjust = 0)+
-  scale_color_viridis_c(option = "turbo")+
-  # scale_color_gradient2(low = "#fde725", high = "lightblue")+
-  scale_radius(range = c(3,6))+
-  scale_y_log10()+
-  theme_minimal()+
-  theme(legend.position = "none",
-        axis.text.y = element_blank(),
-        axis.title.y = element_blank(),
-        panel.grid = element_blank(),
-        panel.background = element_rect(fill = "snow"),
-        axis.ticks.length.x = unit(0.15,"cm"),
-        axis.ticks.x = element_line(colour = "black"))
-p
-
-
-#source: https://ggplot2.tidyverse.org/reference/position_jitter.html
 
 # Conceptual maps from n-grams
 
@@ -184,6 +119,7 @@ columns <- paste(b,a,sep = '')
 # Concept Oriented Networks
 
 pub_ngrams <- pub_dat %>%
+  filter(question_type == "roadblocks") %>% 
   ungroup() %>%
   unnest_tokens(n_gram, pub_comp, token = "ngrams", n = gram_l) %>%
   separate(n_gram, columns, sep = " ", remove = FALSE) %>%
@@ -225,7 +161,7 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   
   # Add labels for nodes
   visNodes(label = "label", title = "title", font = list(size = 20)) %>%
-
+  
   # Customize edges
   visEdges(arrows = "to") %>%
   
@@ -238,11 +174,8 @@ network
 # Generate the HTML code for the network visualization
 html_code <- as.character(tags$div(id = "network-container", network))
 
-# Output the HTML code to embed in your Quarto website
-html_code
-
 # Save the network as an HTML file
-html_file <- "../3-bui-production.hub/abstract_network.html"
+html_file <- "../3-bui-production.hub/roadblocks_abstract_network.html"
 saveWidget(network, file = html_file)
 
 # Save the HTML code to a file
@@ -251,7 +184,81 @@ writeLines(html_code, con = html_file)
 
 
 
-  
+
+
+
+
+# Tokenization
+
+# Our first step to analyze the selected publication component, is to break it 
+# into individual words (or tokens) and store the tokens in a new data frame for 
+# (pub_tokens). There are several packages you could use to tokenize a piece of 
+# text, here we will use the tidytext package for most of our analysis. 
+
+# What the following chunk of code does is: 1) call the pub_dat dataset, 2) break the 
+# chunk of (nested) text into tokens (output = word) by using the function unnest_tokens(),
+# 3) eliminating duplicated words with distinct(), 4) grouping the tokens (word) by years,
+# 5) calculating the frequency of a given token in each year -count(), and adding a new
+# column with the numnber of characters -nchar for each token, so we can filter monosyllabes.
+
+pub_tokens <- filter(pub_dat, question_type == "pathways") %>%
+  unnest_tokens(output = word, input = pub_comp, drop = FALSE) %>%
+  distinct() %>%
+  group_by(year) %>%
+  count(word, sort = TRUE)%>%
+  rename(word_freq = n) %>% 
+  summarise(tot_freq = sum(word_freq)) %>%
+  left_join(
+    .,
+    pub_dat %>%filter(question_type == "pathways") %>% 
+  unnest_tokens(output = word, input = pub_comp, drop = FALSE) %>%
+  distinct() %>%
+  group_by(year, word) %>%
+  count(sort = TRUE) %>%
+  rename(word_freq = n) %>% 
+  rowwise() %>% dplyr::summarise(max_freq = max(word_freq),groups = word,word_freq) %>% 
+  mutate(length = nchar(word)) %>%
+  filter(length > 2) %>%
+  group_by(year) %>%
+  mutate(
+    n_rel = word_freq / sum(word_freq),
+    csm_rel = cumsum(n_rel),
+    pst_rel = (word_freq-1) + csm_rel)%>%
+    ungroup(),
+  by = "year"
+  )
+#source: https://chat.openai.com/auth/login?next=/chat/f817b62b-ac51-4121-bad6-f6f0fd8c7d90 
+
+
+
+# Time Indexed Wordcloud
+
+res_plot = 0.85
+span_y <- res_plot * nrow(pub_tokens)
+set.seed(27)
+
+p <- pub_tokens[1:span_y,] %>% 
+  ggplot(aes(x = year, y = pst_rel, color = -year, size = word_freq, label = word)) +
+  geom_text(aes(size = word_freq),check_overlap = TRUE, hjust = 0)+
+  scale_color_viridis_c(option = "turbo")+
+  # scale_color_gradient2(low = "#fde725", high = "lightblue")+
+  scale_radius(range = c(3,6))+
+  scale_y_log10()+
+  theme_minimal()+
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "snow"),
+        axis.ticks.length.x = unit(0.15,"cm"),
+        axis.ticks.x = element_line(colour = "black"))
+p
+
+
+#source: https://ggplot2.tidyverse.org/reference/position_jitter.html
+
+
+
 ################################################################################  
 # Time Oriented Networks - Extremely complex for abstracts
 ################################################################################
