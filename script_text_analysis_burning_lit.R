@@ -13,15 +13,18 @@ librarian::shelf(dplyr, tidytext, tidyverse,
                  wordcloud, reshape2, graphlayouts,
                  pluralize, quanteda, qgraph, cowplot, readr,
                  ggwordcloud,tm,scales, ggrepel, ggplotify,zoo,
-                 htmlwidgets, htmltools)
+                 htmlwidgets, htmltools, visNetwork)
 
 
 # Import and Export paths
 assets_pubs <- "../1-bui-knowledge.base/assets/data/raw" 
 figures <- "../1-bui-knowledge.base/assets/figs" 
 
-t_df <- as_tibble(read_csv(paste(assets_pubs,"survey_answers_zotero_refs.csv",sep='/'),show_col_types = FALSE))
-t_df
+t_df <- as_tibble(read_csv(paste(assets_pubs,"survey_answers_zotero_refs.csv",sep='/'),
+                           show_col_types = FALSE))
+
+q_tp <- as_tibble(read_csv(paste(assets_pubs,"question_type_references.csv", sep = '/'),
+                           show_col_types = FALSE))
 
 # For our analyses below, we won't need DOIs, PMIDs or arXiv IDs. We will focus
 # on Title, Abstract, Authors, Journal, Year. To keep column names formatting
@@ -37,8 +40,9 @@ t_df
 
 t_df_c <- t_df %>% 
   distinct() %>% 
-  select(Title,`Abstract Note`,Author,`Publication Title`,`Publication Year`) %>% 
-  rename(title = Title,
+  select(Key, Title,`Abstract Note`,Author,`Publication Title`,`Publication Year`) %>% 
+  rename(key = Key,
+         title = Title,
          abstract = `Abstract Note`,
          authors = Author,
          journal = `Publication Title`,
@@ -49,6 +53,21 @@ t_df_c <- t_df %>%
   mutate(id = factor(id))
 
 t_df_c
+
+# Abstracts per question types:
+
+abs_q_type <- q_tp %>% 
+  select(`unique-id`,
+         `question-type`,
+         key) %>% 
+  rename(unique_id = `unique-id`,
+         question_type =`question-type`) %>% 
+  merge(.,
+        t_df_c,
+        by = "key",
+        all.x = TRUE) %>% 
+  filter(is.na(id)==FALSE)
+
 
 # In this case we have abstracts retrieved for all 142 publication items.
 
@@ -72,7 +91,7 @@ t_df_c
 
 pub_comp = "abstract"
 
-pub_dat<- dplyr::select(t_df_c, id, authors, year, journal, all_of(pub_comp)) %>%
+pub_dat<- dplyr::select(abs_q_type, question_type, id, authors, year, journal, all_of(pub_comp)) %>%
   rename(pub_comp_words = all_of(pub_comp)) %>% 
   unnest_tokens(output = word, input = pub_comp_words, drop = FALSE) %>% 
   mutate(word = str_to_lower(word),
@@ -96,7 +115,7 @@ pub_dat<- dplyr::select(t_df_c, id, authors, year, journal, all_of(pub_comp)) %>
 # 5) calculating the frequency of a given token in each year -count(), and adding a new
 # column with the numnber of characters -nchar for each token, so we can filter monosyllabes.
 
-pub_tokens <- filter(pub_dat) %>%
+pub_tokens <- pub_dat %>%
   unnest_tokens(output = word, input = pub_comp, drop = FALSE) %>%
   distinct() %>%
   group_by(year) %>%
@@ -185,15 +204,20 @@ ngram_graph <- pub_ngrams %>%
 
 # Create a data frame for nodes
 node_df <- data.frame(id = V(ngram_graph)$name, 
-                      size = 15, 
+                      # size = 15, 
                       label = V(ngram_graph)$name)
+
+# Calculate the number of edges pointing at each node
+in_degree <- igraph::degree(ngram_graph, mode = "in")
+node_df$value <- in_degree
+
 
 # Create a data frame for edges
 edge_df <- data.frame(from = as.character(get.edgelist(ngram_graph)[,1]), 
                       to = as.character(get.edgelist(ngram_graph)[,2]))
 
 # Create a visNetwork object
-network <- visNetwork(nodes = node_df, edges = edge_df, 
+network <- visNetwork(nodes = node_df, edges = edge_df,
                       width = "100%", height = "600px") %>%
   
   # Add physics layout and stabilization
@@ -201,15 +225,14 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   
   # Add labels for nodes
   visNodes(label = "label", title = "title", font = list(size = 20)) %>%
-  
+
   # Customize edges
   visEdges(arrows = "to") %>%
   
   # Add a tooltip
   visInteraction(hover = TRUE)
 
-# Looking at the network object in the viewer tab
-
+# Display the network in the RStudio Viewer pane
 network
 
 # Generate the HTML code for the network visualization
@@ -225,6 +248,9 @@ saveWidget(network, file = html_file)
 # Save the HTML code to a file
 html_file <- "network.html"
 writeLines(html_code, con = html_file) 
+
+
+
   
 ################################################################################  
 # Time Oriented Networks - Extremely complex for abstracts
