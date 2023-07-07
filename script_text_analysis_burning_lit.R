@@ -4,6 +4,9 @@
 # by Myers-Pigg et al., 20xx
 ################################################################################
 
+#Code author: Francisco J. Guerrero
+
+
 #Cleaning memory resources
 gc()
 
@@ -86,29 +89,68 @@ abs_q_type <- q_tp %>%
 # analysis on. In this case, our options are title or abstract. We will analyze
 # abstracts
 
-
-# Preparing the data
-
 pub_comp = "abstract"
+
+# DATA PREPARATION & TOKENIZATION
+
+# Our first step to analyze the selected publication component, is to make sure that 
+# our text data is tidy. Tidy text data is all in lower case, singular forms, 
+# with no punctuation, numeric characters or symbols. These cleaning process could be
+# done on each abstract as a whole, but we found that it was most efficient to tokenize
+# the abstracts (i.e., break them into individual words) and save the tokens in a new
+# data frame. We then clean all the tokens and reassmenble the 'tokenized' abstracts
+# back into "clean" paragprahps.
+
+# There are several packages you could use to tokenize a piece of text, here we 
+# will use the tidytext package for most of our analysis. 
+
+# What the following chunk of code does is: 
+
+# 1) Define the new data frame, `pub_dat`, as a subset of the `abs_q_type` dataset 
+# and rename the column `abstract` to `pub_comp_words`, so it can be used as a 
+# generic variable in dowstream analysis. 
+
+# 2) Break the chunk of (nested) text into tokens (output = word) by using the 
+# function unnest_tokens(). We set the argument `drop` to TRUE so the original 
+# column with the complete abstracts is removed. 
+
+# 3) We make sure that all of the words are in lower caps and in their singular form
+# with the functions `str_to_lower()` and `singularize()`.
+
+# 4) We remove punctuation, numeric characters, and `stop-words` including articles 
+# and prepositions (e.g., the, a, as, etc.) with `filter()` and `antijoin()`
+
+# 5) We reassemble the abstracts back by nesting (`nest()`) the tokens. This operation
+# stores the tokens as lists associated to each abstract entry. 
+
+# 6) We finally unlist the tokens into tidy paragraphs, which, alike the original 
+# abstract text, are free from special characters, punctuations, etc. 
 
 pub_dat<- dplyr::select(abs_q_type, question_type, id, authors, year, journal, all_of(pub_comp)) %>%
   rename(pub_comp_words = all_of(pub_comp)) %>% 
-  unnest_tokens(output = word, input = pub_comp_words, drop = FALSE) %>% 
+  unnest_tokens(output = word, input = pub_comp_words, drop = TRUE) %>%  
   mutate(word = str_to_lower(word),
-         word = singularize(word)) %>%  
+         word = singularize(word)) %>% 
   filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
   anti_join(stop_words, by = "word") %>% 
-  nest(data = word) %>% 
-  mutate(!!paste0(pub_comp) := map_chr(map(data, unlist), paste, collapse = " ")) %>% 
-  select(-c(pub_comp_words,data))
+  nest(data = word) %>%  
+  mutate(!!paste0(pub_comp) := map_chr(map(data, unlist), paste, collapse = " ")) 
 
 
+# CONCEPTUAL MAPS FROM N-GRAMS
 
-# Conceptual maps from n-grams
+# Parameter definitions
 
+# We start defining the minimum number of words (grams) to be linked
 gram_l = 4
+
+# We then define the bottom of the frequency ranking to be included in the network
 breath = 250
-time_window = 1990
+
+# Finally we select the type of question to be represented in the network
+question = "roadblocks"
+
+# Creating the dataset for network analysis
 
 n_gram <- paste(gram_l,"gram",sep='-')
 
@@ -116,10 +158,9 @@ a <- seq(1:gram_l)
 b <- rep("word",times=gram_l)
 columns <- paste(b,a,sep = '')
 
-# Concept Oriented Networks
 
 pub_ngrams <- pub_dat %>%
-  filter(question_type == "roadblocks") %>% 
+  filter(question_type == question) %>% 
   ungroup() %>%
   unnest_tokens(n_gram, pub_comp, token = "ngrams", n = gram_l) %>%
   separate(n_gram, columns, sep = " ", remove = FALSE) %>%
