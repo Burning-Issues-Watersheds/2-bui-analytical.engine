@@ -33,30 +33,33 @@ head(question_type_raw_dat)
 
 ###############################################################################
 # Parameter definitions
+###############################################################################
 
 # Choosing analysis level
 
-# You can choose the publication component (pub_comp) you want to focus your 
-# analysis on. In this case, our options are title or abstract. We will analyze
-# abstracts
+# Select the publication component (pub_comp) you want to focus your 
+# analysis on. In this case, our options are `title` or `abstract`. We will 
+#analyze abstracts
 
-pub_comp = "title"
+pub_comp = "abstract"
 
-# We start defining the minimum number of word-chunks into which the text is going
-# to be broken into (like tidy-words if gram_l = 1 or tidy sentences if gram_l >2.
+# Select the number of word-chunks into which the text is going
+# to be broken into (like tidy-words if gram_l = 1 or tidy sentences if gram_l >2).
 gram_l = 4
 
-# We then define the bottom of the frequency ranking to be included in the network
+# Select the bottom of the frequency ranking for words to be included in 
+# the network (more than 500 could be overwhelmingly complex)
 breath = 250
 
-# Finally we select the type of question to be represented in the network, the 
+# Select the type of question to be represented in the network, the 
 # options can be seen as: 
+print(unique(question_type_raw_dat$`question-type`))
+question = "pathways"
 
-question_type_options <- unique
-question = "roadblocks"
-
+# Define the graph type and the file extension. There are no options here, these
+# are arguments for VisNetwork to know what we want to plot and how we want to 
+# save it
 graph_type <- "network"
-
 file_extension <- "html"
 
 ################################################################################
