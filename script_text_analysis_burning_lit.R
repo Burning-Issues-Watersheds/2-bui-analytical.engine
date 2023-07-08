@@ -31,6 +31,34 @@ question_type_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"question_type_ref
                            show_col_types = FALSE))
 head(question_type_raw_dat)
 
+###############################################################################
+# Parameter definitions
+
+# Choosing analysis level
+
+# You can choose the publication component (pub_comp) you want to focus your 
+# analysis on. In this case, our options are title or abstract. We will analyze
+# abstracts
+
+pub_comp = "title"
+
+# We start defining the minimum number of word-chunks into which the text is going
+# to be broken into (like tidy-words if gram_l = 1 or tidy sentences if gram_l >2.
+gram_l = 4
+
+# We then define the bottom of the frequency ranking to be included in the network
+breath = 250
+
+# Finally we select the type of question to be represented in the network, the 
+# options can be seen as: 
+
+question_type_options <- unique
+question = "roadblocks"
+
+graph_type <- "network"
+
+file_extension <- "html"
+
 ################################################################################
 # Data preparation
 ###############################################################################
@@ -75,7 +103,10 @@ question_type_dat <- question_type_raw_dat %>%
          `question-type`,
          key) %>% 
   rename(unique_id = `unique-id`,
-         question_type =`question-type`)
+         question_type =`question-type`) %>% 
+  mutate(question_type = if_else(question_type == "pressing-questions",
+                                 "pressing_questions",
+                                 question_type))
 
 # Then, we merge the `question_type_dat`, with the `references_dat` which contains 
 # all the metadata about the publications. In that way, we can subset the entire 
@@ -91,14 +122,6 @@ refereces_question_type_dat <- question_type_dat %>%
 head(refereces_question_type_dat)
 
 # 2. Data cleaning and tokenization
-
-# Choosing analysis level
-
-# You can choose the publication component (pub_comp) you want to focus your 
-# analysis on. In this case, our options are title or abstract. We will analyze
-# abstracts
-
-pub_comp = "abstract"
 
 # Tidying text and tokenization
 
@@ -128,6 +151,7 @@ pub_dat<- dplyr::select(refereces_question_type_dat,
                         journal, 
                         all_of(pub_comp)) %>%
  rename(pub_comp_words = all_of(pub_comp)) %>% 
+ 
   
 # 2) Break the chunk of (nested) text into tokens (output = word) by using the 
 # function unnest_tokens(). We set the argument `drop` to TRUE so the original 
@@ -154,34 +178,21 @@ pub_dat<- dplyr::select(refereces_question_type_dat,
   
   nest(data = word) %>%  
   
-# 6) We finally unlist the tokens into tidy paragraphs, which, alike the original 
+# 6) We now unlist the tokens into tidy paragraphs, which, alike the original 
 # abstract text, are free from special characters, punctuations, etc.:
   
-  mutate(!!paste0(pub_comp) := map_chr(map(data, unlist), paste, collapse = " ")) 
+  mutate(!!paste0(pub_comp) := map_chr(map(data, unlist), paste, collapse = " ")) %>% 
+  
+# 7) For simplicity, we will use the word fire across the entire analysis, so its most
+# common synonym, "wildfire" will be replaced across the dataset
+  mutate(!!paste0(pub_comp) := str_replace_all(!!sym(paste0(pub_comp)), "wildfire", "fire"))
 
 head(pub_dat)
 
 ################################################################################
 # Conceptual maps from text analysis
 ################################################################################
-
-###############################################################################
-# Parameter definitions
-
-
-# We start defining the minimum number of word-chunks into which the text is going
-# to be broken into (like tidy-words if gram_l = 1 or tidy sentences if gram_l >2.
-gram_l = 4
-
-# We then define the bottom of the frequency ranking to be included in the network
-breath = 250
-
-# Finally we select the type of question to be represented in the network
-question = "roadblocks"
-
-###############################################################################
 # Creating the dataset for network analysis: 
-
 
 # Defining column names for the dataset
 n_gram <- paste(gram_l,"gram",sep='-')
@@ -205,21 +216,22 @@ pub_ngrams <- pub_dat %>%
   
   separate(n_gram, columns, sep = " ", remove = FALSE) %>%
   
-# 4) Finally, we count the frequency of each word across all the columns and 
+# 4) We count the frequency of each word across all the columns and 
 # assign each word a rank and calculate its global frequency across all the 
 # abstracts in our sample:
   
   count(across(all_of(columns), ~.x), sort = TRUE) %>%
   mutate(rank = row_number(),
          total = sum(n),
-         t_freq = n/total)
+         t_freq = n/total) %>% 
+# 5) We remove NA values, so they are not included in the ne
+  
+  drop_na()
 
 head(pub_ngrams)
 
 ###############################################################################
 # Creating network graph
-
-graph_type <- "network"
 
 # Create the graph using igraph
 ngram_graph <- pub_ngrams %>%
@@ -228,13 +240,11 @@ ngram_graph <- pub_ngrams %>%
 
 # Create a data frame for nodes
 node_df <- data.frame(id = V(ngram_graph)$name, 
-                      # size = 15, 
                       label = V(ngram_graph)$name)
 
 # Calculate the number of edges pointing at each node
 in_degree <- igraph::degree(ngram_graph, mode = "in")
 node_df$value <- in_degree
-
 
 # Create a data frame for edges
 edge_df <- data.frame(from = as.character(get.edgelist(ngram_graph)[,1]), 
@@ -251,10 +261,10 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   visNodes(label = "label", title = "title", font = list(size = 20)) %>%
   
   # Customize edges
-  visEdges(arrows = "to") #%>%
-  # 
-  # # Add a tooltip
-  # visInteraction(hover = TRUE)
+  visEdges(arrows = "to") %>%
+
+  # Add a tooltip
+  visInteraction(hover = TRUE)
 
 # Display the network in the RStudio Viewer pane
 network
@@ -267,7 +277,6 @@ network
 html_code <- as.character(tags$div(id = "network-container", network))
 
 # Save the network as an HTML file
-file_extension <- "html"
 file_type <- paste(graph_type, file_extension, sep = '.')
 file_name <- paste(question, pub_comp, file_type, sep = '_')
 html_file <- paste(figures, file_name, sep = '/')
