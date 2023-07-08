@@ -24,11 +24,11 @@ assets_pubs <- "../1-bui-knowledge.base/assets/data/raw"
 figures <- "../3-bui-production.hub" 
 
 references_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"survey_answers_zotero_refs.csv",sep='/'),
-                           show_col_types = FALSE))
+                                         show_col_types = FALSE))
 head(references_raw_dat)
 
 question_type_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"question_type_references.csv", sep = '/'),
-                           show_col_types = FALSE))
+                                            show_col_types = FALSE))
 head(question_type_raw_dat)
 
 ###############################################################################
@@ -153,150 +153,172 @@ pub_dat<- dplyr::select(refereces_question_type_dat,
                         year, 
                         journal, 
                         all_of(pub_comp)) %>%
- rename(pub_comp_words = all_of(pub_comp)) %>% 
- 
+  rename(pub_comp_words = all_of(pub_comp)) %>% 
   
-# 2) Break the chunk of (nested) text into tokens (output = word) by using the 
-# function unnest_tokens(). We set the argument `drop` to TRUE so the original 
-# column with the complete abstracts is removed:
+  
+  # 2) Break the chunk of (nested) text into tokens (output = word) by using the 
+  # function unnest_tokens(). We set the argument `drop` to TRUE so the original 
+  # column with the complete abstracts is removed:
   
   unnest_tokens(input = pub_comp_words, 
                 output = word, 
                 drop = TRUE) %>%  
   
-# 3) We make sure that all of the words are in lower caps and in their singular form
-# with the functions `str_to_lower()` and `singularize()`:
+  # 3) We make sure that all of the words are in lower caps and in their singular form
+  # with the functions `str_to_lower()` and `singularize()`:
   
   mutate(word = str_to_lower(word),
          word = singularize(word)) %>% 
   
-# 4) We remove punctuation, numeric characters, and `stop-words` including articles 
-# and prepositions (e.g., the, a, as, etc.) with `filter()` and `antijoin()`:
+  # 4) We remove punctuation, numeric characters, and `stop-words` including articles 
+  # and prepositions (e.g., the, a, as, etc.) with `filter()` and `antijoin()`:
   
   filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
   anti_join(stop_words, by = "word") %>% 
   
-# 5) We reassemble the abstracts back by nesting (`nest()`) the tokens. This operation
-# stores the tokens as lists associated to each abstract entry:
+  # 5) We reassemble the abstracts back by nesting (`nest()`) the tokens. This operation
+  # stores the tokens as lists associated to each abstract entry:
   
   nest(data = word) %>%  
   
-# 6) We now unlist the tokens into tidy paragraphs, which, alike the original 
-# abstract text, are free from special characters, punctuations, etc.:
+  # 6) We now unlist the tokens into tidy paragraphs, which, alike the original 
+  # abstract text, are free from special characters, punctuations, etc.:
   
   mutate(!!paste0(pub_comp) := map_chr(map(data, unlist), paste, collapse = " ")) %>% 
   
-# 7) For simplicity, we will use the word fire across the entire analysis, so its most
-# common synonym, "wildfire" will be replaced across the dataset
+  # 7) For simplicity, we will use the word fire across the entire analysis, so its most
+  # common synonym, "wildfire" will be replaced across the dataset
   mutate(!!paste0(pub_comp) := str_replace_all(!!sym(paste0(pub_comp)), "wildfire", "fire"))
 
 head(pub_dat)
 
+
 ################################################################################
-# Conceptual maps from text analysis
+# Bonus code
 ################################################################################
-# Creating the dataset for network analysis: 
+# Time-oriented wordclouds
+################################################################################
 
-# Defining column names for the dataset
-n_gram <- paste(gram_l,"gram",sep='-')
-a <- seq(1:gram_l)
-b <- rep("word",times=gram_l)
-columns <- paste(b,a,sep = '')
+# Our first step to analyze the selected publication component, is to break it 
+# into individual words (or tokens) and store the tokens in a new data frame for 
+# (pub_tokens). There are several packages you could use to tokenize a piece of 
+# text, here we will use the tidytext package for most of our analysis. 
 
-# 1) Define the new data frame, `pub_ngrams`, as a subset of the `pub_dat` by 
-# filtering by question type (e.g., pressing, pathways, roadblocks)
-# generic variable in dowstream analysis:
+# What the following chunk of code does is: 1) call the pub_dat dataset, 2) break the 
+# chunk of (nested) text into tokens (output = word) by using the function unnest_tokens(),
+# 3) eliminating duplicated words with distinct(), 4) grouping the tokens (word) by years,
+# 5) calculating the frequency of a given token in each year -count(), and adding a new
+# column with the numnber of characters -nchar for each token, so we can filter monosyllabes.
 
-pub_ngrams <- pub_dat %>%
-  filter(question_type == question) %>% 
+pub_tokens <- filter(pub_dat, question_type == "pathways") %>%
+  unnest_tokens(output = word, input = pub_comp, drop = FALSE) %>%
+  distinct() %>%
+  group_by(year) %>%
+  count(word, sort = TRUE)%>%
+  rename(word_freq = n) %>% 
+  summarise(tot_freq = sum(word_freq)) %>%
+  left_join(
+    .,
+    pub_dat %>%filter(question_type == "pathways") %>% 
+      unnest_tokens(output = word, input = pub_comp, drop = FALSE) %>%
+      distinct() %>%
+      group_by(year, word) %>%
+      count(sort = TRUE) %>%
+      rename(word_freq = n) %>% 
+      rowwise() %>% dplyr::summarise(max_freq = max(word_freq),groups = word,word_freq) %>% 
+      mutate(length = nchar(word)) %>%
+      filter(length > 2) %>%
+      group_by(year) %>%
+      mutate(
+        n_rel = word_freq / sum(word_freq),
+        csm_rel = cumsum(n_rel),
+        pst_rel = (word_freq-1) + csm_rel)%>%
+      ungroup(),
+    by = "year"
+  )
+#source: https://chat.openai.com/auth/login?next=/chat/f817b62b-ac51-4121-bad6-f6f0fd8c7d90 
 
-# 2) We break the entire text units from `pub_comp` into chunks (`tokens`) of 
-# length = `gram_l` and store the output in the column `n_gram`:
-  
+
+
+# Time Indexed Wordcloud
+
+res_plot = 0.85
+span_y <- res_plot * nrow(pub_tokens)
+set.seed(27)
+
+p <- pub_tokens[1:span_y,] %>% 
+  ggplot(aes(x = year, y = pst_rel, color = -year, size = word_freq, label = word)) +
+  geom_text(aes(size = word_freq),check_overlap = TRUE, hjust = 0)+
+  scale_color_viridis_c(option = "turbo")+
+  # scale_color_gradient2(low = "#fde725", high = "lightblue")+
+  scale_radius(range = c(3,6))+
+  scale_y_log10()+
+  theme_minimal()+
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "snow"),
+        axis.ticks.length.x = unit(0.15,"cm"),
+        axis.ticks.x = element_line(colour = "black"))
+p
+
+
+#source: https://ggplot2.tidyverse.org/reference/position_jitter.html
+
+
+
+################################################################################  
+# Time Oriented Networks - Extremely complex for abstracts
+################################################################################
+pub_time_ngrams <- pub_dat %>%
+  ungroup() %>%
   unnest_tokens(n_gram, pub_comp, token = "ngrams", n = gram_l) %>%
-
-# 3) We now separate the tokens into columns of single words:
-  
-  separate(n_gram, columns, sep = " ", remove = FALSE) %>%
-  
-# 4) We count the frequency of each word across all the columns and 
-# assign each word a rank and calculate its global frequency across all the 
-# abstracts in our sample:
-  
-  count(across(all_of(columns), ~.x), sort = TRUE) %>%
+  group_by(year) %>%
+  count(n_gram, sort = TRUE) %>%
   mutate(rank = row_number(),
          total = sum(n),
-         t_freq = n/total) %>% 
-# 5) We remove NA values, so they are not included in the ne
-  
-  drop_na()
-
-head(pub_ngrams)
-
-###############################################################################
-# Creating network graph
+         t_freq = n/total)
+head(pub_time_ngrams)
 
 # Create the graph using igraph
-ngram_graph <- pub_ngrams %>%
+ngram_time_graph <- pub_time_ngrams %>%
   filter(rank < breath) %>%
+  filter(year > time_window) %>%
+  # filter(is.na(n_gram)==TRUE) %>% 
   graph_from_data_frame()
 
-# Create a data frame for nodes
-node_df <- data.frame(id = V(ngram_graph)$name, 
-                      label = V(ngram_graph)$name)
+library(visNetwork)
 
-# Calculate the number of edges pointing at each node
-in_degree <- igraph::degree(ngram_graph, mode = "in")
-node_df$value <- in_degree
+# Create a data frame for nodes
+node_tdf <- data.frame(id = V(ngram_time_graph)$name, 
+                       size = 10, 
+                       label = V(ngram_time_graph)$name)
 
 # Create a data frame for edges
-edge_df <- data.frame(from = as.character(get.edgelist(ngram_graph)[,1]), 
-                      to = as.character(get.edgelist(ngram_graph)[,2]))
+edge_tdf <- data.frame(from = as.character(get.edgelist(ngram_time_graph)[,1]), 
+                       to = as.character(get.edgelist(ngram_time_graph)[,2]))
 
 # Create a visNetwork object
-network <- visNetwork(nodes = node_df, edges = edge_df,
-                      width = "100%", height = "600px") %>%
+visNetwork(nodes = node_tdf, edges = edge_tdf, 
+           width = "100%", height = "600px") %>%
   
   # Add physics layout and stabilization
   visPhysics(stabilization = TRUE) %>%
   
   # Add labels for nodes
-  visNodes(label = "label", title = "title", font = list(size = 20)) %>%
+  visNodes(label = "label", title = "title", font = list(size = 15)) %>%
   
   # Customize edges
   visEdges(arrows = "to") %>%
-
+  
   # Add a tooltip
-  visInteraction(hover = TRUE)
+  visInteraction(hover = TRUE) 
 
-# Display the network in the RStudio Viewer pane
-network
 
-###############################################################################
-# Creating the network as an interactive html object to be embedded into the
-# Quarto website
-
-# Generate the HTML code for the network visualization
-# Generate the HTML code for the network visualization
-html_code <- as.character(tags$div(id = "network-container", network))
-
-# Create the widget file name including `question` and `pub_comp`
-widget_file <- paste(figures, paste(question, pub_comp, "interactive.html", sep = "_"), sep = "/")
-saveWidget(network, file = widget_file)
-
-# Modify the HTML code to include the widget file name
-html_code <- gsub("network\\.html", paste(question, pub_comp, "interactive.html", sep = "_"), html_code)
-
-# Save the modified HTML code to a file
-html_file <- paste(figures, paste(question, pub_comp, "network.html", sep = "_"), sep = "/")
-writeLines(html_code, con = html_file)
-
-# Display a message confirming the files have been saved
-cat("HTML widget saved:", widget_file, "\n")
-cat("HTML code saved:", html_file, "\n")
-
+# source: https://cran.r-project.org/web/packages/visNetwork/vignettes/Introduction-to-visNetwork.html
+# Plotting networks with igraph:
+# https://kateto.net/netscix2016.html
 
 ################################################################################
-
-
 
