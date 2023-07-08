@@ -21,7 +21,7 @@ librarian::shelf(dplyr, tidytext, tidyverse,
 
 # Import and Export paths
 assets_pubs <- "../1-bui-knowledge.base/assets/data/raw" 
-figures <- "../1-bui-knowledge.base/assets/figs" 
+figures <- "../3-bui-production.hub" 
 
 references_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"survey_answers_zotero_refs.csv",sep='/'),
                            show_col_types = FALSE))
@@ -219,6 +219,7 @@ head(pub_ngrams)
 ###############################################################################
 # Creating network graph
 
+graph_type <- "network"
 
 # Create the graph using igraph
 ngram_graph <- pub_ngrams %>%
@@ -266,12 +267,17 @@ network
 html_code <- as.character(tags$div(id = "network-container", network))
 
 # Save the network as an HTML file
-html_file <- "../3-bui-production.hub/roadblocks_abstract_network.html"
-saveWidget(network, file = html_file)
+file_extension <- "html"
+file_type <- paste(graph_type, file_extension, sep = '.')
+file_name <- paste(question, pub_comp, file_type, sep = '_')
+html_file <- paste(figures, file_name, sep = '/')
 
-# Save the HTML code to a file
-html_file <- "network.html"
-writeLines(html_code, con = html_file) 
+# Write the HTML code to the file
+writeLines(html_code, con = html_file)
+
+# Display a message confirming the file has been saved
+cat("HTML file saved:", html_file, "\n")
+
 
 ################################################################################
 
