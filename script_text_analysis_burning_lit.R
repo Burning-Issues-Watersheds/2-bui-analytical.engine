@@ -56,11 +56,6 @@ breath = 250
 print(unique(question_type_raw_dat$`question-type`))
 question = "pathways"
 
-# Define the graph type and the file extension. There are no options here, these
-# are arguments for VisNetwork to know what we want to plot and how we want to 
-# save it
-graph_type <- "network"
-file_extension <- "html"
 
 ################################################################################
 # Data preparation
@@ -241,6 +236,9 @@ ngram_graph <- pub_ngrams %>%
   filter(rank < breath) %>%
   graph_from_data_frame()
 
+# Apply the force-directed layout algorithm
+layout <- layout_with_fr(ngram_graph)
+
 # Create a data frame for nodes
 node_df <- data.frame(id = V(ngram_graph)$name, 
                       label = V(ngram_graph)$name)
@@ -258,7 +256,7 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
                       width = "100%", height = "600px") %>%
   
   # Add physics layout and stabilization
-  visPhysics(stabilization = TRUE) %>%
+  visPhysics(stabilization = FALSE) %>%
   
   # Add labels for nodes
   visNodes(label = "label", title = "title", font = list(size = 20)) %>%
@@ -267,7 +265,7 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   visEdges(arrows = "to") %>%
 
   # Add a tooltip
-  visInteraction(hover = TRUE)
+  visInteraction(hover = FALSE)
 
 # Display the network in the RStudio Viewer pane
 network
