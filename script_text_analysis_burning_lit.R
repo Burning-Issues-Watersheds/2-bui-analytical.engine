@@ -43,12 +43,13 @@ head(question_type_raw_dat)
 
 pub_comp = "abstract"
 
-# Select the number of word-chunks into which the text is going
-# to be broken into (like tidy-words if gram_l = 1 or tidy sentences if gram_l >2).
+# Select the number of word chunks into which the text is going
+# to be broken into (like tidy words if gram_l = 1 or tidy sentences if gram_l >2).
 gram_l = 4
 
-# Select the bottom of the frequency ranking for words to be included in 
-# the network (more than 500 could be overwhelmingly complex)
+# Select the bottom of the frequency ranking for words included in 
+# the network (more than 500 could be overwhelmingly complex). The idea here is to 
+# avoid an excess of word combinations with frequencies = 1
 breath = 250
 
 # Select the type of question to be represented in the network, the 
