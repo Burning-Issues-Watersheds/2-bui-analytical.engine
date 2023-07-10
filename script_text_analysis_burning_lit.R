@@ -110,14 +110,14 @@ question_type_dat <- question_type_raw_dat %>%
 # all the metadata about the publications. In that way, we can subset the entire 
 # reference dataset according to question types.
 
-refereces_question_type_dat <- question_type_dat %>% 
+references_question_type_dat <- question_type_dat %>% 
   merge(.,
         references_dat,
         by = "key",
         all.x = TRUE) %>% 
   filter(is.na(id)==FALSE)
 
-head(refereces_question_type_dat)
+head(references_question_type_dat)
 
 # 2. Data cleaning and tokenization
 
@@ -141,7 +141,7 @@ head(refereces_question_type_dat)
 # and rename the column `abstract` to `pub_comp_words`, so it can be used as a 
 # generic variable in downstream analysis:
 
-pub_dat<- dplyr::select(refereces_question_type_dat, 
+pub_dat<- dplyr::select(references_question_type_dat, 
                         question_type,
                         id, 
                         authors, 
