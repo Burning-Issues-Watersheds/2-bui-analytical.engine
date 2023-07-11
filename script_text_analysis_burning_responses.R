@@ -35,7 +35,7 @@ head(responses_raw_dat)
 
 # Select the publication component (pub_comp) you want to focus your 
 # analysis on. In this case, our options are `title` or `abstract`. We will 
-#analyze abstracts
+#analyze answers
 
 pub_comp = "answers"
 
@@ -82,8 +82,8 @@ head(responses_dat)
 # our text data is tidy. Tidy text data is all in lower case, singular forms, 
 # with no punctuation, numeric characters or symbols. These cleaning process could be
 # done on each abstract as a whole, but we found that it was most efficient to tokenize
-# the abstracts (i.e., break them into individual words) and save the tokens in a new
-# data frame. We then clean all the tokens and reassmenble the 'tokenized' abstracts
+# the answers (i.e., break them into individual words) and save the tokens in a new
+# data frame. We then clean all the tokens and reassmenble the 'tokenized' answers
 # back into "clean" paragprahps.
 
 # There are several packages you could use to tokenize a piece of text, here we 
@@ -105,7 +105,7 @@ pub_dat<- dplyr::select(responses_dat,
   
   # 2) Break the chunk of (nested) text into tokens (output = word) by using the 
   # function unnest_tokens(). We set the argument `drop` to TRUE so the original 
-  # column with the complete abstracts is removed:
+  # column with the complete answers is removed:
   
   unnest_tokens(input = pub_comp_words, 
                 output = word, 
@@ -123,7 +123,7 @@ pub_dat<- dplyr::select(responses_dat,
   filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
   anti_join(stop_words, by = "word") %>% 
   
-  # 5) We reassemble the abstracts back by nesting (`nest()`) the tokens. This operation
+  # 5) We reassemble the answers back by nesting (`nest()`) the tokens. This operation
   # stores the tokens as lists associated to each abstract entry:
   
   nest(data = word) %>%  
@@ -168,7 +168,7 @@ pub_ngrams <- pub_dat %>%
   
   # 4) We count the frequency of each word across all the columns and 
   # assign each word a rank and calculate its global frequency across all the 
-  # abstracts in our sample:
+  # answers in our sample:
   
   count(across(all_of(columns), ~.x), sort = TRUE) %>%
   mutate(rank = row_number(),
