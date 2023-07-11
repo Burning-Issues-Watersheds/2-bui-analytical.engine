@@ -164,7 +164,9 @@ pub_dat<- dplyr::select(references_question_type_dat,
 # with the functions `str_to_lower()` and `singularize()`:
   
   mutate(word = str_to_lower(word),
-         word = singularize(word)) %>% 
+         word = if_else(word == "data",
+                        word,
+                        singularize(word))) %>% 
   
 # 4) We remove punctuation, numeric characters, and `stop-words` including articles 
 # and prepositions (e.g., the, a, as, etc.) with `filter()` and `antijoin()`:
