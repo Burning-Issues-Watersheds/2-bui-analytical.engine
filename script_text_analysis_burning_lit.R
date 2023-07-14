@@ -268,8 +268,11 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   visEdges(arrows = "to") %>%
 
   # Add a tooltip
-  visInteraction(hover = FALSE)
+  visInteraction(hover = FALSE) %>% 
 
+  # Add navigation buttons
+  visInteraction(navigationButtons = TRUE)
+  
 # Display the network in the RStudio Viewer pane
 network
 
