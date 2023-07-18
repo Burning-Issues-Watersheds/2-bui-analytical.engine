@@ -1,6 +1,7 @@
 ###############################################################################
-# Text Analysis and visualization from survey respondents to the Wildfires & 
-# Watersheds survey by Myers-Pigg et al., 20xx
+# Text Analysis and visualization from chatGPT aided synthesis of Pressing 
+# Questions provided by survey respondents to the Wildfires & Watersheds survey
+# by Myers-Pigg et al., 20xx
 ################################################################################
 
 #Code author: Francisco J. Guerrero
@@ -17,15 +18,29 @@ librarian::shelf(dplyr, tidytext, tidyverse,
                  ggwordcloud,tm,scales, ggrepel, ggplotify,zoo,
                  htmlwidgets, htmltools, visNetwork)
 
-
 # Import and Export paths
 assets_pubs <- "../1-bui-knowledge.base/assets/data/raw" 
 figures <- "../3-bui-production.hub" 
 
 responses_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"survey_answers_respondents.csv",sep='/'),
-                                         show_col_types = FALSE))
+                                        show_col_types = FALSE))
 head(responses_raw_dat)
 
+# Pressing questions data
+
+press_q_dat <- responses_raw_dat %>% 
+  filter(question_type=="pressing_questions") %>% 
+  mutate(random_id = sample(nrow(.))) %>% 
+  arrange(desc(random_id))
+
+press_q_dat$answers
+
+# ChatGPT synthesis
+
+chatgpt_synthesis_url <- "https://chat.openai.com/share/7ec3bf0b-ad4a-4787-a3fd-eb02b54244d1"
+
+chatgpt_synthesis_dat <- read_csv(paste(assets_pubs,"chatgpt_synth_dat.csv", sep ='/'),
+                                   show_col_types = FALSE)
 
 ###############################################################################
 # Parameter definitions
@@ -37,7 +52,7 @@ head(responses_raw_dat)
 # analysis on. In this case, our options are `title` or `abstract`. We will 
 #analyze answers
 
-pub_comp = "answers"
+pub_comp = "synthesis"
 
 # Select the number of word chunks into which the text is going
 # to be broken into (like tidy words if gram_l = 1 or tidy sentences if gram_l >2).
@@ -50,29 +65,9 @@ breath = 250
 
 # Select the type of question to be represented in the network, the 
 # options can be seen as: 
-print(unique(responses_raw_dat$question_type))
-question = "pathways"
+print(unique(chat_gpt_synthesis_dat$question_type))
+question = "pressing_questions"
 
-
-################################################################################
-# Data preparation
-###############################################################################
-
-# 1. Data Assembly
-
-# We will add another column to the dataframe to count the character length of 
-# each answer, and remove those that are less than 20 characters long. Finally, 
-# we will add a sequential id and make it a factor for visualization purposes.
-
-responses_dat <- responses_raw_dat %>% 
-  mutate(answers_lenght = (answers)) %>% 
-  filter(answers_lenght > 20)%>% 
-  mutate(id = seq(from =1, to= nrow(.),by=1)) %>% 
-  mutate(id = factor(id))
-
-head(responses_dat)
-
-# In this case we a total of 204 responses.
 
 # 2. Data cleaning and tokenization
 
@@ -96,8 +91,8 @@ head(responses_dat)
 # and rename the column `answers` to `pub_comp_words`, so it can be used as a 
 # generic variable in downstream analysis:
 
-pub_dat<- dplyr::select(responses_dat,
-                        input,
+pub_dat<- dplyr::select(chatgpt_synthesis_dat,
+                        source,
                         question_type,
                         all_of(pub_comp)) %>%
   rename(pub_comp_words = all_of(pub_comp)) %>% 
@@ -141,6 +136,7 @@ pub_dat<- dplyr::select(responses_dat,
 
 head(pub_dat)
 
+
 ################################################################################
 # Conceptual maps from text analysis
 ################################################################################
@@ -181,6 +177,7 @@ pub_ngrams <- pub_dat %>%
   drop_na()
 
 head(pub_ngrams)
+
 
 ###############################################################################
 # Creating network graph
@@ -226,39 +223,3 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
 
 # Display the network in the RStudio Viewer pane
 network
-
-
-###############################################################################
-# Creating the network as an interactive html object to be embedded into the
-# Quarto website
-
-# Generate the HTML code for the network visualization
-# Generate the HTML code for the network visualization
-html_code <- as.character(tags$div(id = "network-container", network))
-
-# Create the widget file name including `question` and `pub_comp`
-widget_file <- paste(figures, paste(question, pub_comp, "interactive.html", sep = "_"), sep = "/")
-saveWidget(network, file = widget_file)
-
-# Modify the HTML code to include the widget file name
-html_code <- gsub("network\\.html", paste(question, pub_comp, "interactive.html", sep = "_"), html_code)
-
-# Save the modified HTML code to a file
-html_file <- paste(figures, paste(question, pub_comp, "network.html", sep = "_"), sep = "/")
-writeLines(html_code, con = html_file)
-
-# Display a message confirming the files have been saved
-cat("HTML widget saved:", widget_file, "\n")
-cat("HTML code saved:", html_file, "\n")
-
-
-################################################################################
-
-# Happy coding!
-
-# Reproducibility is the key to open, equitable, and accessible science. By the
-# people, for the people!
-
-
-
-
