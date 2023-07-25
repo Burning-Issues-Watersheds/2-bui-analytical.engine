@@ -23,12 +23,12 @@ librarian::shelf(dplyr, tidytext, tidyverse,
 assets_pubs <- "../1-bui-knowledge.base/assets/data/raw" 
 figures <- "../3-bui-production.hub" 
 
-references_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"survey_answers_zotero_refs.csv",sep='/'),
-                           show_col_types = FALSE))
+references_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"zotero_synthesis_papers.csv",sep='/'),
+                                         show_col_types = FALSE))
 head(references_raw_dat)
 
-question_type_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"question_type_references.csv", sep = '/'),
-                           show_col_types = FALSE))
+question_type_raw_dat <- as_tibble(read_csv(paste(assets_pubs,"zotero_synthesis_literature_answers.csv", sep = '/'),
+                                            show_col_types = FALSE))
 head(question_type_raw_dat)
 
 ###############################################################################
@@ -54,7 +54,7 @@ breath = 250
 
 # Select the type of question to be represented in the network, the 
 # options can be seen as: 
-print(unique(question_type_raw_dat$`question-type`))
+print(unique(question_type_raw_dat$question_type))
 question = "pressing_questions"
 
 
@@ -92,26 +92,13 @@ references_dat <- references_raw_dat %>%
 
 head(references_dat)
 
-# In this case we have abstracts retrieved for all 142 publication items.
-
-# Now, we do some minor reformatting on the `question_type_raw_dat` dataset in 
-# in preparation to be merged with the `reference_dat` dataset.  
-
-question_type_dat <- question_type_raw_dat %>% 
-  select(`unique-id`,
-         `question-type`,
-         key) %>% 
-  rename(unique_id = `unique-id`,
-         question_type =`question-type`) %>% 
-  mutate(question_type = if_else(question_type == "pressing-questions",
-                                 "pressing_questions",
-                                 question_type))
+# In this case we have abstracts retrieved for all 6 publication items.
 
 # Then, we merge the `question_type_dat`, with the `references_dat` which contains 
 # all the metadata about the publications. In that way, we can subset the entire 
 # reference dataset according to question types.
 
-references_question_type_dat <- question_type_dat %>% 
+references_question_type_dat <- question_type_raw_dat %>% 
   merge(.,
         references_dat,
         by = "key",
@@ -149,43 +136,43 @@ pub_dat<- dplyr::select(references_question_type_dat,
                         year, 
                         journal, 
                         all_of(pub_comp)) %>%
- rename(pub_comp_words = all_of(pub_comp)) %>% 
- 
+  rename(pub_comp_words = all_of(pub_comp)) %>% 
   
-# 2) Break the chunk of (nested) text into tokens (output = word) by using the 
-# function unnest_tokens(). We set the argument `drop` to TRUE so the original 
-# column with the complete abstracts is removed:
+  
+  # 2) Break the chunk of (nested) text into tokens (output = word) by using the 
+  # function unnest_tokens(). We set the argument `drop` to TRUE so the original 
+  # column with the complete abstracts is removed:
   
   unnest_tokens(input = pub_comp_words, 
                 output = word, 
                 drop = TRUE) %>%  
   
-# 3) We make sure that all of the words are in lower caps and in their singular form
-# with the functions `str_to_lower()` and `singularize()`:
+  # 3) We make sure that all of the words are in lower caps and in their singular form
+  # with the functions `str_to_lower()` and `singularize()`:
   
   mutate(word = str_to_lower(word),
          word = if_else(word == "data",
                         word,
                         singularize(word))) %>% 
   
-# 4) We remove punctuation, numeric characters, and `stop-words` including articles 
-# and prepositions (e.g., the, a, as, etc.) with `filter()` and `antijoin()`:
+  # 4) We remove punctuation, numeric characters, and `stop-words` including articles 
+  # and prepositions (e.g., the, a, as, etc.) with `filter()` and `antijoin()`:
   
   filter(!str_detect(word, "[:punct:]|[:digit:]")) %>% 
   anti_join(stop_words, by = "word") %>% 
   
-# 5) We reassemble the abstracts back by nesting (`nest()`) the tokens. This operation
-# stores the tokens as lists associated to each abstract entry:
+  # 5) We reassemble the abstracts back by nesting (`nest()`) the tokens. This operation
+  # stores the tokens as lists associated to each abstract entry:
   
   nest(data = word) %>%  
   
-# 6) We now unlist the tokens into tidy paragraphs, which, alike the original 
-# abstract text, are free from special characters, punctuations, etc.:
+  # 6) We now unlist the tokens into tidy paragraphs, which, alike the original 
+  # abstract text, are free from special characters, punctuations, etc.:
   
   mutate(!!paste0(pub_comp) := map_chr(map(data, unlist), paste, collapse = " ")) %>% 
   
-# 7) For simplicity, we will use the word fire across the entire analysis, so its most
-# common synonym, "wildfire" will be replaced across the dataset
+  # 7) For simplicity, we will use the word fire across the entire analysis, so its most
+  # common synonym, "wildfire" will be replaced across the dataset
   mutate(!!paste0(pub_comp) := str_replace_all(!!sym(paste0(pub_comp)), "wildfire", "fire"))
 
 head(pub_dat)
@@ -207,25 +194,25 @@ columns <- paste(b,a,sep = '')
 
 pub_ngrams <- pub_dat %>%
   filter(question_type == question) %>% 
-
-# 2) We break the entire text units from `pub_comp` into chunks (`tokens`) of 
-# length = `gram_l` and store the output in the column `n_gram`:
+  
+  # 2) We break the entire text units from `pub_comp` into chunks (`tokens`) of 
+  # length = `gram_l` and store the output in the column `n_gram`:
   
   unnest_tokens(n_gram, pub_comp, token = "ngrams", n = gram_l) %>%
-
-# 3) We now separate the tokens into columns of single words:
+  
+  # 3) We now separate the tokens into columns of single words:
   
   separate(n_gram, columns, sep = " ", remove = FALSE) %>%
   
-# 4) We count the frequency of each word across all the columns and 
-# assign each word a rank and calculate its global frequency across all the 
-# abstracts in our sample:
+  # 4) We count the frequency of each word across all the columns and 
+  # assign each word a rank and calculate its global frequency across all the 
+  # abstracts in our sample:
   
   count(across(all_of(columns), ~.x), sort = TRUE) %>%
   mutate(rank = row_number(),
          total = sum(n),
          t_freq = n/total) %>% 
-# 5) We remove NA values, so they are not included in the ne
+  # 5) We remove NA values, so they are not included in the ne
   
   drop_na()
 
@@ -266,13 +253,13 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   
   # Customize edges
   visEdges(arrows = "to") %>%
-
+  
   # Add a tooltip
   visInteraction(hover = FALSE) %>% 
-
+  
   # Add navigation buttons
   visInteraction(navigationButtons = TRUE)
-  
+
 # Display the network in the RStudio Viewer pane
 network
 
@@ -285,14 +272,14 @@ network
 html_code <- as.character(tags$div(id = "network-container", network))
 
 # Create the widget file name including `question` and `pub_comp`
-widget_file <- paste(figures, paste(question, pub_comp, "interactive.html", sep = "_"), sep = "/")
+widget_file <- paste(figures, paste("synthesis_lit",question, pub_comp, "interactive.html", sep = "_"), sep = "/")
 saveWidget(network, file = widget_file)
 
 # Modify the HTML code to include the widget file name
-html_code <- gsub("network\\.html", paste(question, pub_comp, "interactive.html", sep = "_"), html_code)
+html_code <- gsub("network\\.html", paste("synthesis_lit",question, pub_comp, "interactive.html", sep = "_"), html_code)
 
 # Save the modified HTML code to a file
-html_file <- paste(figures, paste(question, pub_comp, "network.html", sep = "_"), sep = "/")
+html_file <- paste(figures, paste("synthesis_lit",question, pub_comp, "network.html", sep = "_"), sep = "/")
 writeLines(html_code, con = html_file)
 
 # Display a message confirming the files have been saved
