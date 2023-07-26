@@ -41,7 +41,7 @@ head(question_type_raw_dat)
 # analysis on. In this case, our options are `title` or `abstract`. We will 
 #analyze abstracts
 
-pub_comp = "abstract"
+pub_comp = "answers"
 
 # Select the number of word chunks into which the text is going
 # to be broken into (like tidy words if gram_l = 1 or tidy sentences if gram_l >2).
@@ -93,6 +93,35 @@ references_dat <- references_raw_dat %>%
 head(references_dat)
 
 # In this case we have abstracts retrieved for all 6 publication items.
+
+
+# Now, we do some minor reformatting on the `question_type_raw_dat` dataset in 
+# in preparation to be merged with the `reference_dat` dataset.  
+
+# Regular expression pattern to match any text within parentheses containing a number
+pattern <- "\\([^\\d]+?\\d+[^\\d]+?\\)"
+
+# Define a custom function to clean the text
+clean_text <- function(text) {
+  cleaned_text <- str_replace_all(text, pattern, "")
+  return(cleaned_text)
+}
+
+# Use the custom function with mutate to create a new cleaned column
+question_type_dat <- question_type_raw_dat %>%
+  mutate(cleaned_answers = clean_text(answers)) %>% 
+  select(-answers) %>% 
+  rename(answers = cleaned_answers)
+
+# Regular expression pattern to match any text within parentheses containing a number
+pattern <- "\\([^\\d]+?\\d+[^\\d]+?\\)"
+
+# Use str_replace_all with mutate to create a new cleaned column
+question_type_dat <- question_type_raw_dat %>%
+  mutate(answers = str_replace_all(answers, pattern, ""))
+
+question_type_dat$answers
+
 
 # Then, we merge the `question_type_dat`, with the `references_dat` which contains 
 # all the metadata about the publications. In that way, we can subset the entire 
