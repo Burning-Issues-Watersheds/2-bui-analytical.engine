@@ -55,7 +55,7 @@ breath = 250
 # Select the type of question to be represented in the network, the 
 # options can be seen as: 
 print(unique(question_type_raw_dat$question_type))
-question = "pressing_questions"
+question = "pathways"
 
 
 ################################################################################
@@ -96,10 +96,11 @@ head(references_dat)
 
 
 # Now, we do some minor reformatting on the `question_type_raw_dat` dataset in 
-# in preparation to be merged with the `reference_dat` dataset.  
+# in preparation to be merged with the `reference_dat` dataset. We remove references
+# within parenthesis
 
 # Regular expression pattern to match any text within parentheses containing a number
-pattern <- "\\([^\\d]+?\\d+[^\\d]+?\\)"
+pattern <- "\\s*\\([^\\)]+\\)"
 
 # Define a custom function to clean the text
 clean_text <- function(text) {
@@ -113,13 +114,6 @@ question_type_dat <- question_type_raw_dat %>%
   select(-answers) %>% 
   rename(answers = cleaned_answers)
 
-# Regular expression pattern to match any text within parentheses containing a number
-pattern <- "\\([^\\d]+?\\d+[^\\d]+?\\)"
-
-# Use str_replace_all with mutate to create a new cleaned column
-question_type_dat <- question_type_raw_dat %>%
-  mutate(answers = str_replace_all(answers, pattern, ""))
-
 question_type_dat$answers
 
 
@@ -127,7 +121,7 @@ question_type_dat$answers
 # all the metadata about the publications. In that way, we can subset the entire 
 # reference dataset according to question types.
 
-references_question_type_dat <- question_type_raw_dat %>% 
+references_question_type_dat <- question_type_dat %>% 
   merge(.,
         references_dat,
         by = "key",
