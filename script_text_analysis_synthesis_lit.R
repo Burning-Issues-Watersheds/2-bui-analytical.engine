@@ -55,7 +55,7 @@ breath = 250
 # Select the type of question to be represented in the network, the 
 # options can be seen as: 
 print(unique(question_type_raw_dat$question_type))
-question = "pathways"
+question = "pressing_questions"
 
 
 ################################################################################
