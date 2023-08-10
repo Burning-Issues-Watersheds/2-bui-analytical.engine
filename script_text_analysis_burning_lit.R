@@ -55,7 +55,7 @@ breath = 250
 # Select the type of question to be represented in the network, the 
 # options can be seen as: 
 print(unique(question_type_raw_dat$`question-type`))
-question = "pressing_questions"
+question = "pathways"
 
 
 ################################################################################
@@ -271,7 +271,7 @@ network <- visNetwork(nodes = node_df, edges = edge_df,
   visInteraction(hover = FALSE) %>% 
 
   # Add navigation buttons
-  visInteraction(navigationButtons = TRUE)
+  visInteraction(navigationButtons = FALSE)
   
 # Display the network in the RStudio Viewer pane
 network
